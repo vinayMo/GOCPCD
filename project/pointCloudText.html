@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Point Cloud Text</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<link type="text/css" rel="stylesheet" href="main.css">
+		<style>
+
+			#menu {
+				position: absolute;
+				bottom: 20px;
+				width: 100%;
+				text-align: center;
+			}
+
+			.element {
+				width: 120px;
+				height: 160px;
+				font-family: Helvetica, sans-serif;
+				white-space: nowrap;
+				text-align: center;
+				line-height: normal;
+				cursor: default;
+			}
+
+			.element:hover {
+					text-shadow: 0 0 2px rgba(255,255,255,1);
+					color: rgba(255,255,255,1);
+			}
+
+				.element .symbol {
+					position: absolute;
+					top: 40px;
+					left: 0px;
+					right: 0px;
+					font-size: 60px;
+					font-weight: bold;
+					color: rgba(255,255,255,0.5);
+				}
+
+
+			input[type="text"]::placeholder{
+				text-align: center;
+			}
+
+			button {
+				color: 'black';
+				background: 'white';
+				text-transform: capitalize;
+				border: 0px;
+				padding: 5px 10px;
+				cursor: pointer;
+			}
+
+			button:hover {
+				background-color: rgba(255,255,255,0.5);
+			}
+
+			button:active {
+				color: #000000;
+				background-color: rgba(255,255, 255,1 );
+			}
+		</style>
+	</head>
+	<body>
+		<div id="container"></div>
+		<div id="menu">
+			<input type="text" id="text" name="text" placeholder="type your text here"><br><br>
+			<button id="enter">Enter</button>
+			<button id="reset">Reset View</button>
+		</div>
+
+		<script type="module">
+
+			import * as THREE from '../build/three.module.js';
+
+			import { TWEEN } from './jsm/libs/tween.module.min.js';
+			import { TrackballControls } from './jsm/controls/TrackballControls.js';
+			import { CSS3DRenderer, CSS3DObject } from './jsm/renderers/CSS3DRenderer.js';
+			import { pcd } from './assets/pcd.js';
+			import { words } from './assets/words.js';
+
+			var camera, scene, renderer;
+			var controls;
+
+			var objects = [];
+			init();
+			animate();
+
+			function addWord(){
+				var text = document.getElementById("text").value;
+				if(text == ''){
+					console.log('no text');
+					return;
+				}
+				var element = document.createElement( 'div' );
+				element.className = 'element';
+				element.style.backgroundColor = 'rgba(0,127,127,0)';
+
+				var textElement = document.createElement( 'div' );
+				textElement.className = 'symbol';
+				
+				textElement.textContent = text;
+				document.getElementById("text").value = '';
+				words.push(text);
+				element.appendChild( textElement );
+
+				var object = new CSS3DObject( element );
+				var index = objects.length*6;
+				var target = new THREE.Vector3(pcd[index]*100, pcd[index+1]*100, pcd[index+2]*100);
+				console.log(camera.position)
+				object.position.x = camera.position.x;
+				object.position.y = camera.position.y;
+				object.position.z = camera.position.z;
+				object.rotation.x = camera.rotation.x;
+				object.rotation.y = camera.rotation.y;
+				object.rotation.z = camera.rotation.z;
+				object.scale.x = 0.01;
+				object.scale.y = 0.01;
+				object.scale.z = 0.01;
+
+				console.log(object);
+				transformFromOrigin(object, target, 2000);
+				scene.add( object );
+
+				objects.push( object );
+				render();
+			}
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.position.z = 7000;
+
+				scene = new THREE.Scene();
+
+				// table
+
+				for ( var i = 0; i < words.length; i++ ) {
+
+					var element = document.createElement( 'div' );
+					element.className = 'element';
+					element.style.backgroundColor = 'rgba(0,127,127,0)';
+
+					var textElement = document.createElement( 'div' );
+					textElement.className = 'symbol';
+					textElement.textContent = words[i];
+					element.appendChild( textElement );
+
+					var object = new CSS3DObject( element );
+					var index = objects.length*6;
+					object.position.x = pcd[index]*100;
+					object.position.y = pcd[index+1]*100;
+					object.position.z = pcd[index+2]*100;
+					var scale = 0.5 + Math.random();
+					object.scale.x = scale;
+					object.scale.y = scale;
+					object.scale.z = scale;
+
+					scene.add( object );
+
+					objects.push( object );
+
+				}
+
+				//
+
+				renderer = new CSS3DRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.getElementById( 'container' ).appendChild( renderer.domElement );
+
+				//
+
+				controls = new TrackballControls( camera, renderer.domElement );
+				controls.noPan = true;
+				controls.minDistance = 500;
+				controls.maxDistance = 10000;
+				controls.addEventListener( 'change', render );
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				var button = document.getElementById( 'enter' );
+				button.addEventListener( 'click', addWord );
+
+				button = document.getElementById( 'reset' );
+				button.addEventListener( 'click', resetView );
+
+				render();
+
+			}
+
+			function resetView(){
+				TWEEN.removeAll();
+
+					new TWEEN.Tween( camera.position )
+						.to( { x: 0, y: 0, z: 7000 }, 1000 )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+					new TWEEN.Tween( camera.up )
+						.to( {x: 0, y: 1, z: 0 }, 1000 )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+			}
+
+			function transformFromOrigin( object, target, duration ) {
+
+				console.log(camera.rotation);
+				TWEEN.removeAll();
+
+					new TWEEN.Tween( object.position )
+						.to( { x: target.x, y: target.y, z: target.z }, duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+					new TWEEN.Tween( object.rotation )
+						.to( { x: 0, y: 0, z: 0 }, duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+					new TWEEN.Tween( object.scale )
+						.to( { x: 1, y: 1, z: 1 }, duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+				new TWEEN.Tween( this )
+					.to( {}, duration )
+					.onUpdate( render )
+					.start();
+
+			}
+
+			function transform( targets, duration ) {
+
+				TWEEN.removeAll();
+
+				for ( var i = 0; i < objects.length; i ++ ) {
+
+					var object = objects[ i ];
+					var target = targets[ i ];
+
+					new TWEEN.Tween( object.position )
+						.to( { x: target.position.x, y: target.position.y, z: target.position.z }, Math.random() * duration + duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+					new TWEEN.Tween( object.rotation )
+						.to( { x: target.rotation.x, y: target.rotation.y, z: target.rotation.z }, Math.random() * duration + duration )
+						.easing( TWEEN.Easing.Exponential.InOut )
+						.start();
+
+				}
+
+				new TWEEN.Tween( this )
+					.to( {}, duration * 2 )
+					.onUpdate( render )
+					.start();
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				render();
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				TWEEN.update();
+
+				controls.update();
+
+			}
+
+			function render() {
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>
